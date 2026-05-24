@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claude Usage</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header class="card__header">
+        <h1>Claude プラン使用状況</h1>
+        <div class="header-actions">
+          <button id="font-smaller" class="icon-btn" title="文字を小さく" aria-label="文字を小さく">A-</button>
+          <button id="font-larger" class="icon-btn" title="文字を大きく" aria-label="文字を大きく">A+</button>
+          <button id="pin" class="icon-btn icon-btn--pin" title="固定表示" aria-label="固定表示" aria-pressed="false">固定</button>
+          <button id="refresh" class="icon-btn" title="Refresh" aria-label="Refresh">⟳</button>
+        </div>
+      </header>
+
+      <div id="content">
+        <section class="bucket" id="bucket-5h">
+          <div class="bucket__title">現在のセッション (5h)</div>
+          <div class="bucket__row">
+            <div class="bucket__pct" data-pct>—</div>
+            <div class="bucket__resets" data-resets>—</div>
+          </div>
+          <div class="bar"><div class="bar__fill" data-fill></div></div>
+        </section>
+
+        <section class="bucket" id="bucket-7d">
+          <div class="bucket__title">週間制限</div>
+          <div class="bucket__row">
+            <div class="bucket__pct" data-pct>—</div>
+            <div class="bucket__resets" data-resets>—</div>
+          </div>
+          <div class="bar"><div class="bar__fill" data-fill></div></div>
+        </section>
+
+        <section class="bucket" id="bucket-7d-sonnet">
+          <div class="bucket__title">週間制限 (Sonnet)</div>
+          <div class="bucket__row">
+            <div class="bucket__pct" data-pct>—</div>
+            <div class="bucket__resets" data-resets>—</div>
+          </div>
+          <div class="bar"><div class="bar__fill" data-fill></div></div>
+        </section>
+
+        <div id="error" class="error" hidden></div>
+      </div>
+
+      <footer class="card__footer">
+        <span id="updated-at">—</span>
+      </footer>
+      <div id="resize-handle" class="resize-handle" aria-hidden="true"></div>
+    </main>
+    <script src="main.js" defer></script>
+  </body>
+</html>

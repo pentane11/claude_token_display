@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+            artifact_name: macos-aarch64
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+            artifact_name: macos-x86_64
+          - platform: windows-latest
+            args: ''
+            artifact_name: windows-x86_64
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust (macOS targets)
+        if: matrix.platform == 'macos-latest'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Setup Rust (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          shared-key: ${{ matrix.platform }}-${{ matrix.args }}
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build (no release upload)
+        run: npx tauri build ${{ matrix.args }}
+
+      - name: Collect bundle artifacts
+        shell: bash
+        run: |
+          set -e
+          mkdir -p artifacts
+          case "${{ matrix.args }}" in
+            "--target aarch64-apple-darwin")
+              cp src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg artifacts/ ;;
+            "--target x86_64-apple-darwin")
+              cp src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg artifacts/ ;;
+            "")
+              cp src-tauri/target/release/bundle/msi/*.msi artifacts/ 2>/dev/null || true
+              cp src-tauri/target/release/bundle/nsis/*.exe artifacts/ 2>/dev/null || true
+              ;;
+          esac
+          ls -la artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: artifacts/
+          if-no-files-found: warn
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten directory
+        run: |
+          mkdir -p out
+          find dist -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" \) -exec cp {} out/ \;
+          ls -la out/
+
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: true
+          prerelease: false
+          files: out/*
+          body: |
+            ## ダウンロード
+
+            - **macOS (Apple Silicon)**: `*_aarch64.dmg`
+            - **macOS (Intel)**: `*_x64.dmg`
+            - **Windows**: `*_x64-setup.exe` または `*_x64_en-US.msi`
+
+            ## 前提
+            `claude` CLI でログイン済みであること。未ログインの場合は `claude` を起動してログインしてください。
+
+            ## ⚠️ macOS で「"token_display.app" は壊れているため開けません」と出る場合
+
+            未署名アプリのため Gatekeeper が誤判定しています（実際には壊れていません）。
+            ターミナルで以下を一度実行してください:
+
+            ```sh
+            xattr -dr com.apple.quarantine /Applications/token_display.app
+            ```
+
+            その後 Launchpad / Spotlight から起動できます。
+
+            ## 初回起動時の Keychain ダイアログ (macOS)
+
+            「`/usr/bin/security` が "Claude Code-credentials" にアクセスしようとしています」と出たら **「常に許可」** をクリック。
+
+            ## Windows
+            SmartScreen が出たら「詳細情報」→「実行」。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
